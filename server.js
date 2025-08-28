@@ -28,11 +28,19 @@ app.post('/api/chat', async (req, res) => {
   try {
     const { prompt, level, documentPrompt, pdfData, fileName } = req.body;
 
+    console.log('Received request:', { 
+      prompt: prompt?.substring(0, 50) + '...', 
+      level, 
+      documentPrompt,
+      hasApiKey: !!OPENROUTER_API_KEY 
+    });
+
     if (!prompt || !level) {
       return res.status(400).json({ error: 'Prompt and level are required' });
     }
 
     if (!OPENROUTER_API_KEY) {
+      console.error('OpenRouter API key not found in environment variables');
       return res.status(500).json({ error: 'OpenRouter API key not configured' });
     }
 
@@ -88,12 +96,17 @@ app.post('/api/chat', async (req, res) => {
       ],
     };
 
+    // Get the referer URL from request or use environment variable
+    const refererUrl = req.get('referer') || 
+                      process.env.FRONTEND_URL || 
+                      'https://robotutorai.onrender.com';
+
     const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'http://localhost:3000',
+        'HTTP-Referer': refererUrl,
         'X-Title': 'RobotutorAI'
       },
       body: JSON.stringify(requestBody)

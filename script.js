@@ -1,5 +1,7 @@
-// Backend API configuration
-const API_BASE_URL = 'http://localhost:3000';
+// Backend API configuration - automatically detect environment
+const API_BASE_URL = window.location.hostname === 'localhost' 
+    ? 'http://localhost:3000' 
+    : window.location.origin;
 let document_prompt = false;
 
 // Function to update level descriptions - moved to global scope
