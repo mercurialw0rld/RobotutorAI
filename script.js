@@ -4,6 +4,13 @@ const API_BASE_URL = window.location.hostname === 'localhost'
     : window.location.origin;
 let document_prompt = false;
 
+// Generate a unique session ID for this browser session
+let sessionId = localStorage.getItem('robotutor_session_id');
+if (!sessionId) {
+    sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substring(2);
+    localStorage.setItem('robotutor_session_id', sessionId);
+}
+
 // Function to update level descriptions - moved to global scope
 function updateLevelDescriptions(level) {
     // Remove active class from all level info elements
@@ -135,16 +142,35 @@ async function handleFileUpload() {
 }
 
 // clear PDF function
-function clearPDF() {
-  document.getElementById('file-input').value = '';
-  document_prompt = false;
-  
-  // Reset upload button appearance
-  const uploadBtn = document.getElementById('upload-btn');
-  uploadBtn.classList.remove('has-file');
-  uploadBtn.querySelector('span').textContent = 'Upload PDF';
-  
-  addMessage("PDF cleared. You can now ask general questions or upload a new PDF.", false);
+async function clearPDF() {
+  try {
+    // Clear PDF from backend session
+    const response = await fetch(`${API_BASE_URL}/api/clear-pdf`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ sessionId: sessionId })
+    });
+
+    if (response.ok) {
+      // Clear frontend state
+      document.getElementById('file-input').value = '';
+      document_prompt = false;
+      
+      // Reset upload button appearance
+      const uploadBtn = document.getElementById('upload-btn');
+      uploadBtn.classList.remove('has-file');
+      uploadBtn.querySelector('span').textContent = 'Upload PDF';
+      
+      addMessage("PDF and conversation history cleared. You can now ask general questions or upload a new PDF.", false);
+    } else {
+      addMessage("Error clearing PDF. Please try again.", false);
+    }
+  } catch (error) {
+    console.error("Error clearing PDF:", error);
+    addMessage("Error clearing PDF. Please try again.", false);
+  }
 }
 
   // encode pdf to base64
@@ -171,7 +197,8 @@ async function handlePrompt(user_prompt, user_level, document_prompt) {
     let requestData = {
       prompt: user_prompt,
       level: user_level,
-      documentPrompt: document_prompt
+      documentPrompt: document_prompt,
+      sessionId: sessionId
     };
 
     // If there's a PDF, get its data
@@ -218,7 +245,14 @@ async function sendToBackend(requestData) {
     removeLoadingMessage();
     
     if (result.success && result.response) {
-      addMessage(result.response, false);
+      let messageContent = result.response;
+      
+      // Add indicator if using file annotations
+      if (result.hasAnnotations && document_prompt) {
+        messageContent += "\n\n*📎 Using PDF annotations for faster processing*";
+      }
+      
+      addMessage(messageContent, false);
     } else {
       throw new Error("Unexpected response format from backend");
     }

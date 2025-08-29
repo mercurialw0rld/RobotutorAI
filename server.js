@@ -14,6 +14,27 @@ app.use(express.static('.')); // Servir archivos estáticos
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
+// In-memory storage for file annotations and conversation history
+// In production, you might want to use Redis or a database
+const sessionStorage = new Map();
+
+// Helper function to get or create session
+function getSession(sessionId) {
+  if (!sessionStorage.has(sessionId)) {
+    sessionStorage.set(sessionId, {
+      fileAnnotations: null,
+      conversationHistory: [],
+      currentPDF: null
+    });
+  }
+  return sessionStorage.get(sessionId);
+}
+
+// Helper function to clear session
+function clearSession(sessionId) {
+  sessionStorage.delete(sessionId);
+}
+
 // Learning levels configuration
 const levels = {
     '1': `You have max 1000 tokens, adapt your response to that limitation. Speak in whatever language the user spoke you. Act as a very kind and patient teacher for small children. Explain the concept using very simple language, short sentences, and analogies that a child aged 5 to 8 can understand. Completely avoid technical or scientific terminology. Use examples involving playing, animals, or toys to make the explanation fun and clear.`,
@@ -23,16 +44,34 @@ const levels = {
     '5': `You have max 1000 tokens, adapt your response to that limitation. Speak in whatever language the user spoke you. You are a senior researcher. Explain the concept at a doctoral level. Do not explain the fundamentals of the topic; instead, delve into points of controversy, current challenges, new lines of research, advanced theoretical models, and the relevance of recent publications in the literature. Make reference to relevant theoretical models or equations.`
 };
 
+// API endpoint to clear PDF and annotations
+app.post('/api/clear-pdf', (req, res) => {
+  try {
+    const { sessionId } = req.body;
+    
+    if (!sessionId) {
+      return res.status(400).json({ error: 'Session ID is required' });
+    }
+    
+    clearSession(sessionId);
+    res.json({ success: true, message: 'PDF and conversation history cleared' });
+  } catch (error) {
+    console.error('Error clearing PDF:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // API endpoint for chat completions
 app.post('/api/chat', async (req, res) => {
   try {
-    const { prompt, level, documentPrompt, pdfData, fileName } = req.body;
+    const { prompt, level, documentPrompt, pdfData, fileName, sessionId } = req.body;
 
     console.log('Received request:', { 
       prompt: prompt?.substring(0, 50) + '...', 
       level, 
       documentPrompt,
-      hasApiKey: !!OPENROUTER_API_KEY 
+      hasApiKey: !!OPENROUTER_API_KEY,
+      sessionId: sessionId?.substring(0, 8) + '...'
     });
 
     if (!prompt || !level) {
@@ -44,16 +83,24 @@ app.post('/api/chat', async (req, res) => {
       return res.status(500).json({ error: 'OpenRouter API key not configured' });
     }
 
+    // Get or create session
+    const session = sessionId ? getSession(sessionId) : { fileAnnotations: null, conversationHistory: [], currentPDF: null };
+
     // Build messages array
-    let messages;
+    let messages = [
+      {
+        "role": "system",
+        "content": levels[level]
+      }
+    ];
+
+    // Add conversation history
+    messages = messages.concat(session.conversationHistory);
     
     if (documentPrompt && pdfData) {
-      messages = [
-        {
-          "role": "system",
-          "content": levels[level]
-        },
-        {
+      // First time uploading PDF - store it and get annotations
+      if (!session.fileAnnotations || session.currentPDF !== fileName) {
+        messages.push({
           "role": "user",
           "content": [{
             "type": "text",
@@ -66,19 +113,27 @@ app.post('/api/chat', async (req, res) => {
               "file_data": pdfData
             }
           }]
-        }
-      ];
-    } else {
-      messages = [
-        {
-          "role": "system",
-          "content": levels[level]
-        },
-        {
+        });
+        session.currentPDF = fileName;
+      } else {
+        // Use existing annotations for follow-up questions
+        messages.push({
           "role": "user",
           "content": prompt
-        }
-      ];
+        });
+      }
+    } else if (documentPrompt && session.fileAnnotations) {
+      // Asking about document but no new PDF data - use annotations
+      messages.push({
+        "role": "user",
+        "content": prompt
+      });
+    } else {
+      // Regular chat without document
+      messages.push({
+        "role": "user",
+        "content": prompt
+      });
     }
 
     // Call OpenRouter API
@@ -123,9 +178,44 @@ app.post('/api/chat', async (req, res) => {
     const completion = await response.json();
     
     if (completion.choices && completion.choices[0] && completion.choices[0].message) {
+      const assistantMessage = completion.choices[0].message;
+      
+      // Store file annotations if present (first time processing PDF)
+      if (assistantMessage.annotations && sessionId) {
+        session.fileAnnotations = assistantMessage.annotations;
+        console.log('Stored file annotations for session:', sessionId.substring(0, 8) + '...');
+      }
+      
+      // Update conversation history
+      if (sessionId) {
+        // Add user message to history
+        session.conversationHistory.push({
+          "role": "user",
+          "content": prompt
+        });
+        
+        // Add assistant response to history (with annotations if present)
+        const historyMessage = {
+          "role": "assistant",
+          "content": assistantMessage.content
+        };
+        
+        if (assistantMessage.annotations) {
+          historyMessage.annotations = assistantMessage.annotations;
+        }
+        
+        session.conversationHistory.push(historyMessage);
+        
+        // Keep only last 10 messages to prevent context from getting too large
+        if (session.conversationHistory.length > 10) {
+          session.conversationHistory = session.conversationHistory.slice(-10);
+        }
+      }
+      
       res.json({
         success: true,
-        response: completion.choices[0].message.content
+        response: assistantMessage.content,
+        hasAnnotations: !!assistantMessage.annotations
       });
     } else {
       res.status(500).json({ error: "Unexpected response format from OpenRouter API" });
