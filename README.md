@@ -10,6 +10,7 @@
 <div align="center">
   <h3>🎯 Your AI Learning Companion with Adaptive Explanations</h3>
   <p>An intelligent tutoring system that adapts its explanations to different learning levels, from children to research experts</p>
+  <img src="screenshot.png>
 </div>
 
 ---
@@ -122,3 +123,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 This project is licensed under the ISC License - see the [LICENSE](LICENSE) file for details.
 
 ---
+
