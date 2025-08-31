@@ -1104,9 +1104,89 @@ body {
   .header::before {
     animation: none;
   }
-  
+
   .grid-background {
     animation: none;
   }
+}
+
+/* MathJax Styles for Mathematical Expressions */
+.message-content .MathJax {
+  color: var(--text-primary) !important;
+  background: transparent !important;
+  font-family: 'JetBrains Mono', 'Courier New', monospace !important;
+}
+
+.message-content .MathJax_Display {
+  margin: 1rem 0 !important;
+  padding: 0.75rem 1rem !important;
+  background: rgba(0, 255, 255, 0.05) !important;
+  border-radius: var(--radius-lg) !important;
+  border: 1px solid rgba(0, 255, 255, 0.3) !important;
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.2) !important;
+  display: block !important;
+  text-align: center !important;
+}
+
+.message-content .MathJax[data-mathml] {
+  margin: 0.25rem 0 !important;
+  padding: 0.25rem 0.5rem !important;
+  background: rgba(0, 255, 255, 0.08) !important;
+  border-radius: var(--radius-sm) !important;
+  border: 1px solid rgba(0, 255, 255, 0.2) !important;
+  display: inline-block !important;
+}
+
+.message-content .mjx-chtml {
+  color: var(--text-primary) !important;
+  font-size: 1.1em !important;
+}
+
+.message-content .mjx-chtml .mjx-mi {
+  color: var(--neon-cyan) !important;
+}
+
+.message-content .mjx-chtml .mjx-mo {
+  color: var(--text-secondary) !important;
+}
+
+.message-content .mjx-chtml .mjx-mn {
+  color: var(--neon-green) !important;
+}
+
+.message-content .mjx-chtml .mjx-ms {
+  color: var(--neon-purple) !important;
+  background: rgba(128, 0, 255, 0.1) !important;
+  padding: 0.1em 0.3em !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+.message-content .mjx-chtml .mjx-mtext {
+  color: var(--text-muted) !important;
+}
+
+.message-content .mjx-chtml .mjx-mfrac {
+  border-top: 1px solid var(--neon-cyan) !important;
+  border-bottom: 1px solid var(--neon-cyan) !important;
+}
+
+.message-content .mjx-chtml .mjx-msub,
+.message-content .mjx-chtml .mjx-msup {
+  font-size: 0.8em !important;
+}
+
+.message-content .mjx-chtml .mjx-mroot > .mjx-box {
+  border-top: 1px solid var(--neon-cyan) !important;
+}
+
+/* Ensure MathJax elements don't break layout */
+.message-content .mjx-chtml {
+  line-height: 1.2 !important;
+  vertical-align: middle !important;
+}
+
+.message-content .mjx-chtml[display="block"] {
+  margin: 1rem 0 !important;
+  text-align: center !important;
 }
 

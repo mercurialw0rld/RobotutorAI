@@ -1,8 +1,14 @@
 // Backend API configuration - automatically detect environment
-const API_BASE_URL = window.location.hostname === 'localhost' 
-    ? 'http://localhost:3000' 
+const API_BASE_URL = window.location.hostname === 'localhost'
+    ? 'http://localhost:3000'
     : window.location.origin;
 let document_prompt = false;
+
+// Configure marked to work with MathJax
+marked.setOptions({
+    breaks: true,
+    gfm: true
+});
 
 // Generate a unique session ID for this browser session
 let sessionId = localStorage.getItem('robotutor_session_id');
@@ -30,16 +36,43 @@ function addMessage(content, isUser = false) {
     const chatMessages = document.getElementById('chat-messages');
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${isUser ? 'user' : 'assistant'}`;
-    
+
     const messageContent = document.createElement('div');
     messageContent.className = 'message-content';
     messageContent.innerHTML = marked.parse(content);
-    
+
     messageDiv.appendChild(messageContent);
     chatMessages.appendChild(messageDiv);
-    
+
+    // Process MathJax expressions after content is added
+    processMathJax(messageContent);
+
     // Scroll to bottom
     chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// Function to process MathJax expressions
+function processMathJax(element) {
+    if (typeof MathJax !== 'undefined' && MathJax.typesetPromise) {
+        // Use the modern MathJax 3 API
+        MathJax.typesetPromise([element]).then(() => {
+            console.log('MathJax processing completed');
+        }).catch((err) => {
+            console.error('MathJax processing error:', err);
+        });
+    } else if (typeof MathJax !== 'undefined') {
+        // Fallback to older API
+        try {
+            MathJax.typeset([element]);
+            console.log('MathJax processed with fallback method');
+        } catch (err) {
+            console.error('MathJax fallback error:', err);
+        }
+    } else {
+        console.warn('MathJax is not loaded yet, retrying in 100ms...');
+        // Retry after a short delay if MathJax isn't ready
+        setTimeout(() => processMathJax(element), 100);
+    }
 }
 
 function addLoadingMessage() {
@@ -47,14 +80,14 @@ function addLoadingMessage() {
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message assistant';
     messageDiv.id = 'loading-message';
-    
+
     const messageContent = document.createElement('div');
     messageContent.className = 'message-content';
     messageContent.innerHTML = '<span class="loading"></span> Thinking...';
-    
+
     messageDiv.appendChild(messageContent);
     chatMessages.appendChild(messageDiv);
-    
+
     // Scroll to bottom
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
