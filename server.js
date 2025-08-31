@@ -166,7 +166,7 @@ app.post('/api/chat', async (req, res) => {
 
     // Call OpenRouter API
     const requestBody = {
-      model: 'deepseek/deepseek-chat-v3.1:free',
+      model: 'deepseek/deepseek-chat-v3.1',
       messages: messages,
       max_tokens: 2000,
       plugins: [
